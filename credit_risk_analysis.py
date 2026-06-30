@@ -1,6 +1,6 @@
-# =====================================
+
 # IMPORT LIBRARIES
-# =====================================
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,34 +13,33 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay, roc_curve, auc
 )
 
-# =====================================
+
 # LOAD DATA
-# =====================================
+
 df = pd.read_csv("creditcard.csv")
 target = 'Class'
 
-# =====================================
-# TIME BUCKET (ONLY FOR ANALYSIS)
-# =====================================
+
+# TIME BUCKET 
+
 df['time_bucket'] = pd.qcut(df['Time'], q=10, duplicates='drop')
 
-# =====================================
+
 # SELECT NUMERIC FEATURES
-# =====================================
+
 num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 num_cols.remove(target)
 num_cols.remove('Time')
 
-# =====================================
-# BINNING (ONCE)
-# =====================================
+
+# BINNING 
+
 df_woe = df.copy()
 for col in num_cols:
     df_woe[col] = pd.qcut(df[col], 10, duplicates='drop')
 
-# =====================================
 # WOE + IV FUNCTION
-# =====================================
+
 def calculate_woe_iv(data, feature, target):
     temp = pd.crosstab(data[feature], data[target])
 
@@ -56,9 +55,9 @@ def calculate_woe_iv(data, feature, target):
 
     return temp, temp['IV'].sum()
 
-# =====================================
+
 # CALCULATE WOE & IV
-# =====================================
+
 woe_dict, iv_dict = {}, {}
 
 for col in num_cols:
@@ -68,29 +67,29 @@ for col in num_cols:
         iv_dict[col] = iv
 
 # Save IV
+
 iv_df = pd.DataFrame(iv_dict.items(), columns=['Feature', 'IV'])
 iv_df = iv_df.sort_values(by='IV', ascending=False)
 iv_df.to_csv("iv_values.csv", index=False)
 
-# =====================================
+
 # WOE TRANSFORMATION
-# =====================================
+
 for col in woe_dict:
     df_woe[col] = df_woe[col].map(woe_dict[col])
 
 df_woe = df_woe.fillna(0)
 
-# =====================================
+
 # FEATURE SELECTION
-# =====================================
+
 selected_features = [col for col, iv in iv_dict.items() if iv > 0.02]
 
 X = df_woe[selected_features]
 y = df_woe[target]
 
-# =====================================
 # SAVE TRANSFORMED DATASET WITH IV
-# =====================================
+
 transformed_df = df_woe[selected_features + [target]].copy()
 
 for col in selected_features:
@@ -98,25 +97,25 @@ for col in selected_features:
 
 transformed_df.to_csv("woe_transformed_with_iv.csv", index=False)
 
-# =====================================
+
 # TRAIN TEST SPLIT
-# =====================================
+
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
 
-# =====================================
+
 # MODELS
-# =====================================
+
 log_model = LogisticRegression(max_iter=1000)
 dt_model = DecisionTreeClassifier(max_depth=4)
 
 log_model.fit(X_train, y_train)
 dt_model.fit(X_train, y_train)
 
-# =====================================
+
 # METRICS FUNCTION
-# =====================================
+
 def get_metrics(y_true, y_pred):
     return (
         accuracy_score(y_true, y_pred),
@@ -126,15 +125,15 @@ def get_metrics(y_true, y_pred):
     )
 
 # Predictions
+
 y_pred_log = log_model.predict(X_test)
 y_pred_dt = dt_model.predict(X_test)
 
 log_metrics = get_metrics(y_test, y_pred_log)
 dt_metrics = get_metrics(y_test, y_pred_dt)
 
-# =====================================
 # CROSS VALIDATION
-# =====================================
+
 def cross_val(model):
     acc = cross_val_score(model, X, y, cv=5, scoring='accuracy').mean()
     f1 = cross_val_score(model, X, y, cv=5, scoring='f1').mean()
@@ -143,9 +142,9 @@ def cross_val(model):
 log_cv = cross_val(log_model)
 dt_cv = cross_val(dt_model)
 
-# =====================================
-# SAVE FINAL METRICS
-# =====================================
+
+# FINAL METRICS
+
 metrics_df = pd.DataFrame({
     'Model': ['Logistic Regression', 'Decision Tree'],
     'Accuracy': [log_metrics[0], dt_metrics[0]],
@@ -158,9 +157,9 @@ metrics_df = pd.DataFrame({
 
 metrics_df.to_csv("final_model_metrics.csv", index=False)
 
-# =====================================
-# SAVE PREDICTIONS
-# =====================================
+
+#  PREDICTIONS
+
 results = pd.DataFrame({
     'Actual': y_test,
     'Logistic_Prediction': y_pred_log,
@@ -169,16 +168,16 @@ results = pd.DataFrame({
 
 results.to_csv("model_predictions.csv", index=False)
 
-# =====================================
+
 # CONFUSION MATRIX
-# =====================================
+
 ConfusionMatrixDisplay.from_predictions(y_test, y_pred_log)
 plt.title("Confusion Matrix - Logistic Regression")
 plt.show()
 
-# =====================================
+
 # ROC CURVE
-# =====================================
+
 y_prob = log_model.predict_proba(X_test)[:, 1]
 
 fpr, tpr, _ = roc_curve(y_test, y_prob)
@@ -193,25 +192,24 @@ plt.title("ROC Curve")
 plt.legend()
 plt.show()
 
-# =====================================
+
 # DECISION TREE PLOT
-# =====================================
+
 plt.figure(figsize=(20, 15))
 plot_tree(dt_model, filled=True, feature_names=X.columns, max_depth=4)
 plt.title("Decision Tree")
 plt.show()
 
-# =====================================
+
 # ROLL RATE ANALYSIS
-# =====================================
+
 roll = pd.crosstab(df['time_bucket'], df[target])
 roll['Total'] = roll.sum(axis=1)
 roll['Bad Rate'] = roll[1] / roll['Total']
 roll.to_csv("roll_rate.csv")
 
-# =====================================
 # VINTAGE ANALYSIS
-# =====================================
+
 vintage = df.groupby('time_bucket')[target].agg(['count', 'sum', 'mean']).reset_index()
 vintage.columns = ['Cohort', 'Total Accounts', 'Bad Accounts', 'Bad Rate']
 vintage.to_csv("vintage_analysis.csv", index=False)
