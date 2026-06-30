@@ -1,4 +1,4 @@
-# machine-learning-classification-projects
+# machine-learning-classification-project 01
 Built end-to-end classification models for credit risk and marketing analytics using Logistic Regression, Decision Tree, WOE, and IV techniques.
 # 🏦 Credit Risk Analysis & Fraud Detection
 
